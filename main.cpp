@@ -176,6 +176,32 @@ void agregarLogroAUsuario(Usuario *lista, string alias, string nombreLogro, stri
     }
     cout << "Logro agregado a " << alias << endl;
 }
+void editarNombreUsuario(Usuario *inicio, string aliasBuscado) {
+    Usuario *aux = inicio;
+    while (aux != NULL && aux->alias != aliasBuscado){
+
+        aux = aux->prox;
+    }
+    if (aux == NULL) {
+        cout << "Alias no encontrado" << endl;
+        return;
+    }
+
+    cout << "Usuario encontrado: " << aux->nombre << " (" << aux->alias << ")" << endl;
+    cout << "Nuevo nombre: ";
+    cin.ignore();
+    string nuevoNombre;
+    getline(cin, nuevoNombre);
+
+    if (nuevoNombre != "") {
+        aux->nombre = nuevoNombre;
+        cout << "Nombre actualizado correctamente." << endl;
+    } else {
+        cout << "No se realizaron cambios (nombre vacío)." << endl;
+    }
+}
+
+
 
 string pedirDatosUsuarioNombre()
 {
@@ -204,8 +230,9 @@ int main()
              << "1) Crear usuario\n"
              << "2) Mostrar usuarios\n"
              << "3) Agregar logro a usuario\n"
-             << "4) Eliminar un usuari\n"
-             << "5) Salir\n"
+             << "4) Eliminar un usuario\n"
+             << "5) cambiar nombre de usuario\n"
+             << "6) Salir\n"
              << "Opcion: ";
         cin >> opcion;
         cout << endl;
@@ -274,13 +301,22 @@ int main()
         break;
         }
         case 5:
+        {
+            string alias;
+            cout << "Ingresa el alias del usuario al que se le va a cambiar el nombre: ";
+            cin.ignore(); 
+            getline(cin, alias);
+            editarNombreUsuario(primero, alias);
+        break;
+        }
+        case 6:
             cout << "Fin.\n";
             break;
 
         default:
             cout << "Opción inválida.\n";
         }
-    } while (opcion != 5);
+    } while (opcion != 6);
 
     return 0;
 }
