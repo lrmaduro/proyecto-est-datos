@@ -3,6 +3,7 @@
 #include <string>
 #include <time.h>
 #include <random>
+#include <cctype>
 
 using namespace std;
 
@@ -16,6 +17,17 @@ struct Logro
     Logro *sig;
 };
 
+struct Mision
+{
+    string titulo;
+    string descripcion;
+    string requisito;
+    int puntos;
+    int nivelRequisito;
+    int id;
+    Mision *prox;
+};
+
 struct Usuario
 {
     string nombre;
@@ -23,12 +35,31 @@ struct Usuario
     int nivel;
     int puntosTotales;
     Logro *listaLogros;
+    Mision *listaMisiones;
     Usuario *sig;
 };
+
+
+
+struct Acertijo {
+    string acertijo;
+    string respuesta;
+};
+
 
 char aMayus(char c)
 {
     return (c >= 'a' && c <= 'z') ? c - ('a' - 'A') : c;
+}
+
+string aMinus(string str)
+{
+    for (int i = 0; i < str.length(); i++) 
+    {
+        str[i] = tolower(str[i]);
+    }
+
+    return str;
 }
 
 double multiplicador(char r)
@@ -47,6 +78,8 @@ double multiplicador(char r)
         return MULT_BRONCE;
     }
 }
+
+
 
 string fechaHoy()
 {
@@ -68,7 +101,7 @@ void recalcularNivel(Usuario *u)
 
 int aleatorio(int minimo, int maximo)
 {
-    static mt19937 gen(static_cast<unsigned>(time(nullptr)));
+    static default_random_engine gen(static_cast<unsigned>(time(nullptr)));
     uniform_int_distribution<int> dist(minimo, maximo);
     return dist(gen);
 }
@@ -80,7 +113,12 @@ Logro *nuevoLogro(const string &n, const string &d, char r, int pts)
 
 Usuario *nuevoUsuario(const string &n, const string &a)
 {
-    return new Usuario{n, a, 1, 0, nullptr, nullptr};
+    return new Usuario{n, a, 1, 0, nullptr, nullptr, nullptr};
+}
+
+Mision *nuevaMision(const string &titulo, const string &descripcion, const string &req, int pts, int nivel, int id)
+{
+    return new Mision{titulo, descripcion, req, pts, nivel, id, nullptr};
 }
 
 /*================  Lista enlazada de usuarios  ==============*/
@@ -91,10 +129,10 @@ void insertarUsuario(Usuario *&cab, const string &n, const string &a)
         cab = nuevoUsuario(n, a);
         return;
     }
-    Usuario *p = cab;
-    while (p->sig)
-        p = p->sig;
-    p->sig = nuevoUsuario(n, a);
+    Usuario *posicion = cab;
+    while (posicion->sig)
+        posicion = posicion->sig;
+    posicion->sig = nuevoUsuario(n, a);
 }
 
 Usuario *buscarUsuario(Usuario *cab, const string &a)
@@ -106,62 +144,107 @@ Usuario *buscarUsuario(Usuario *cab, const string &a)
 
 void eliminarUsuario(Usuario *&cab, const string &a)
 {
-    Usuario *p = cab, *ant = nullptr;
-    while (p && p->alias != a)
+    Usuario *mover = cab, *ant = nullptr;
+    while (mover && mover->alias != a)
     {
-        ant = p;
-        p = p->sig;
+        ant = mover;
+        mover = mover->sig;
     }
-    if (!p)
+    if (!mover)
     {
         cout << "Alias no encontrado\n";
         return;
     }
 
-    for (Logro *l = p->listaLogros; l;)
+    Logro *l = mover->listaLogros;
+    Mision *m = mover->listaMisiones;
+
+    while (l)
     {
         Logro *tmp = l;
         l = l->sig;
         delete tmp;
     }
+
+    while (m)
+    {
+        Mision *tmpM = m;
+        m = m->prox;
+        delete tmpM;
+    }
+
     if (!ant)
-        cab = p->sig;
+        cab = mover->sig;
     else
-        ant->sig = p->sig;
-    delete p;
+        ant->sig = mover->sig;
+    delete mover;
     cout << "Perfil eliminado\n";
 }
 
+
 void agregarLogro(Usuario *u, const string &nombre, const string &descripcion, char nuevoRango, int puntosBase)
 {
-    auto valor = [](char r)
-    { return (r == 'O') ? 3 : (r == 'P') ? 2
-                                         : 1; };
-    auto mult = [](char r)
-    { return (r == 'O') ? 1.5 : (r == 'P') ? 1.2
-                                           : 1.0; };
+    int nvalor, pvalor;
+
+    switch (nuevoRango)
+    {
+        case 'O':
+            nvalor = 3;
+            break;
+
+        case 'P':
+            nvalor = 2;
+            break;
+
+        case 'B':
+            nvalor = 1;
+            break;
+    }
 
     Logro *l = u->listaLogros;
-    while (l && l->nombre != nombre)
-        l = l->sig;
-
-    if (!l)
+    cout<<(l == nullptr)<<endl;
+    if (l == nullptr)
     {
         /* ——— crear logro ——— */
         Logro *nuevo = new Logro{nombre, descripcion,
                                  nuevoRango, puntosBase,
                                  fechaHoy(), u->listaLogros};
+        cout<<"Despues de Logro *nuevo"<<endl;
         u->listaLogros = nuevo;
-        u->puntosTotales += int(puntosBase * mult(nuevoRango));
+        cout<<"Despues de listaLogros"<<endl;
+        u->puntosTotales += int(puntosBase * multiplicador(l->rango));
+        cout<<"Antes de recalcularNivel"<<endl;
         recalcularNivel(u);
+        cout<<"despues de recalcularNivel"<<endl;
         cout << "Logro [" << nombre << "] creado en rango "
              << nuevoRango << ".\n";
+        return;
     }
-    else if (valor(nuevoRango) > valor(l->rango))
+
+    while (l != nullptr && l->nombre.compare(nombre))
+        cout<<(l==nullptr)<<endl;
+        l = l->sig;
+
+    switch (l->rango)
+    {
+        case 'O':
+            pvalor = 3;
+            break;
+
+        case 'P':
+            pvalor = 2;
+            break;
+
+        case 'B':
+            pvalor = 1;
+            break;
+    }
+    
+    if (nvalor > pvalor)
     {
         /* ——— mejora de rango ——— */
-        int antes = int(l->puntosBase * mult(l->rango));
-        int ahora = int(l->puntosBase * mult(nuevoRango));
+        int antes = int(l->puntosBase * multiplicador(l->rango));
+        int ahora = int(l->puntosBase * multiplicador(nuevoRango));
         l->rango = nuevoRango;
         l->fecha = fechaHoy();
         u->puntosTotales += (ahora - antes);
@@ -170,6 +253,158 @@ void agregarLogro(Usuario *u, const string &nombre, const string &descripcion, c
              << nuevoRango << ".\n";
     }
     /* si es igual o peor, no cambia nada */
+}
+
+/* Listas enlazadas de Misiones */
+void agregarMision(Usuario *u, const string &titulo, const string &desc, const string &req, int pts, int nivel, int id)
+{
+    if (!u->listaMisiones)
+    {
+        u->listaMisiones = nuevaMision(titulo, desc, req, pts, nivel, id);
+        return;
+    }
+
+    Mision *mover = u->listaMisiones;
+
+    while (mover->prox != nullptr)
+    {
+        mover = mover->prox;
+    }
+
+    mover->prox = nuevaMision(titulo, desc, req, pts, nivel, id);
+}
+
+Mision *elegirMision(int id)
+{
+    string t, d, r;
+    char rang;
+    int pts, nivel;
+    switch (id)
+    {
+        case 0:
+            t = "Ganar en PPT!";
+            d = "Ganarle a la computadora en Piedra, Papel o Tijeras.";
+            r = "Ser nivel 1.";
+            pts = 500;
+            nivel = 1;
+            break;
+
+         case 1:
+            t = "Adivinar el acertijo (facil)!";
+            d = "Adivinar el acertijo random en la dificultad facil.";
+            r = "Ser nivel 1.";
+            pts = 500;
+            nivel = 1;
+            break;
+
+        case 2:
+            t = "Adivinar la Secuencia Aritmetica!";
+            d = "Completar el minijuego de adivinar el siguiente numero en la secuencia.";
+            r = "Ser nivel 2.";
+            pts = 500;
+            nivel = 2;
+            break;
+
+        case 3:
+            t = "Adivinar el acertijo (Dificil)!";
+            d = "Adivinar el acertijo random en la dificultad dificil.";
+            r = "Ser nivel 2.";
+            pts = 500;
+            nivel = 2;
+            break;
+
+        case 4:
+            t = "Ganar en Suma 21!";
+            d = "Ganarle a la computadora en el juego de sumar 21.";
+            r = "Ser nivel 2.";
+            pts = 500;
+            nivel = 2;
+            break;
+
+        case 5:
+            t = "Ganar jugando al Ahoracado!";
+            d = "Adivinar la palabra en el juego del ahorcado.";
+            r = "Ser nivel 3.";
+            pts = 500;
+            nivel = 3;
+            break;
+
+        case 6:
+            t = "Resolver el problema matematico!";
+            d = "Resolver la operacion matematica planteada.";
+            r = "Ser nivel 3.";
+            pts = 500;
+            nivel = 3;
+            break;
+        
+        case 7:
+            t = "Ganar en el juego de Pasos Exactos!";
+            d = "Completar el juego de pasos exactos.";
+            r = "Ser nivel 3.";
+            pts = 500;
+            nivel = 3;
+            break;
+    }
+
+    return nuevaMision(t,d,r,pts,nivel,id);
+}
+
+
+void eliminarMision(Usuario *u, int id)
+{
+    Mision *mover = u->listaMisiones, *tmp = nullptr, *anterior = nullptr;
+
+    while (mover && mover->id != id)
+    {
+        anterior = mover;
+        mover = mover->prox;
+    }
+    if (!mover)
+    {
+        return;
+    } 
+    else
+    {
+        Mision *tmp = mover;
+        anterior->prox = mover->prox;
+        delete tmp;
+    }
+}
+
+void inicializarMisiones(Usuario *u, const string &alias)
+{
+   Usuario *j = buscarUsuario(u, alias);
+   Mision *m = j->listaMisiones, *n = nullptr;
+   for (int i = 0; i < 8; i++)
+   {
+        n = elegirMision(i);
+        string t = n->titulo, desc = n->descripcion, req = n->requisito;
+        int nivel = n->nivelRequisito, ptos = n->puntos;
+        agregarMision(j, t, desc, req, ptos, nivel, i);
+   }
+}
+
+void mostrarMisiones(Usuario *cab, const string &a)
+{
+    Usuario *j = buscarUsuario(cab, a);
+    if (!j)
+    {
+        cout << "El usuario no existe\n";
+    }
+    else
+    {
+        Mision *m = j->listaMisiones;
+        while (m)
+        {
+            cout <<"Mision #" << m->id+1 << ": " << m->titulo << endl;
+            cout <<"Descripcion: " << m->descripcion << endl;
+            cout <<"Requisito: " << m->requisito << endl;
+            cout <<"Nivel de requisito: " << m->nivelRequisito << endl;
+            cout <<"Puntos a obtener: " << m->puntos << endl;
+            cout<<endl; 
+            m = m->prox;
+        }    
+    }
 }
 
 void mostrarUno(Usuario *u)
@@ -195,8 +430,11 @@ void mostrarTodos(Usuario *cab)
         cout << "No hay jugadores\n";
         return;
     }
-    for (; cab; cab = cab->sig)
+    while (cab)
+    {
         mostrarUno(cab);
+        cab = cab->sig;
+    }
 }
 
 void mostrarRanking(Usuario *cabeza)
@@ -212,23 +450,26 @@ void mostrarRanking(Usuario *cabeza)
     Usuario *segundo = nullptr;
     Usuario *tercero = nullptr;
 
-    for (Usuario *p = cabeza; p; p = p->sig)
+    Usuario *mover = cabeza;
+
+    while (mover)
     {
-        if (!primero || p->puntosTotales > primero->puntosTotales)
+        if (!primero || mover->puntosTotales > primero->puntosTotales)
         {
             tercero = segundo;
             segundo = primero;
-            primero = p;
+            primero = mover;
         }
-        else if (!segundo || p->puntosTotales > segundo->puntosTotales)
+        else if (!segundo || mover->puntosTotales > segundo->puntosTotales)
         {
             tercero = segundo;
-            segundo = p;
+            segundo = mover;
         }
-        else if (!tercero || p->puntosTotales > tercero->puntosTotales)
+        else if (!tercero || mover->puntosTotales > tercero->puntosTotales)
         {
-            tercero = p;
+            tercero = mover;
         }
+        mover = mover->sig;
     }
 
     cout << "\n=== PODIO ===\n";
@@ -268,6 +509,33 @@ bool nivelSuficiente(Usuario *u, int req)
     return false;
 }
 
+/* Piedra, Papel o Tijeras */
+char elegirPPT()
+{
+    int n = aleatorio(1, 3);
+    if (n == 1)
+        return 't';
+    else if (n == 2)
+        return 'p';
+    else
+        return 'l';
+}
+
+char rangoPorIntentos(int c) 
+{
+    if (c <= 1)
+    {
+        return 'O';
+    } else if (c > 1 && c <= 5)
+    {
+        return 'P';
+    }
+    else
+    {
+        return 'B';
+    }
+}
+
 void juegoPPT(Usuario *j)
 {
     if (j->nivel < 1)
@@ -276,16 +544,17 @@ void juegoPPT(Usuario *j)
         return;
     }
 
+    int c = 0;
     char otra = 's';
-    char opc[3] = {'p', 'l', 't'}; 
+    char opc = elegirPPT(); 
     while (otra == 's' || otra == 'S')
     {
+        c++;
         cout << "\nPiedra (p), Papel (l), Tijeras (t): ";
         char elec;
         cin >> elec;
         cin.ignore();
-        char cpu = opc[aleatorio(0, 2)];
-
+        char cpu = elegirPPT();
         cout << "CPU elige " << (cpu == 'p' ? "Piedra" : cpu == 'l' ? "Papel"
                                                                     : "Tijeras")
              << "\n";
@@ -296,7 +565,10 @@ void juegoPPT(Usuario *j)
         else if (gana)
         {
             cout << "Ganaste!\n";
-            agregarLogro(j, "PPT", "Piedra Papel Tijeras", 'O', 1000);
+            agregarLogro(j, "PPT", "Ganar en Piedra Papel Tijeras!", rangoPorIntentos(c), 500);
+            cout<<"Pase agregar logro"<<endl;
+            eliminarMision(j, 0);
+            return;
         }
         else
             cout << "Perdiste. Sin logro.\n";
@@ -307,7 +579,32 @@ void juegoPPT(Usuario *j)
     }
 }
 
+
 /* Acertijo fácil */
+Acertijo pedirAcertijoFacil()
+{
+    int n = aleatorio(1, 3);
+    Acertijo acertijoNuevo;
+
+    switch (n)
+    {
+        case 1:
+            acertijoNuevo.acertijo = "Oro no es, Plata no es. Que es? ";
+            acertijoNuevo.respuesta = "Platano";
+            break;
+        case 2:
+            acertijoNuevo.acertijo = "Que tiene manos pero no puede aplaudir? ";
+            acertijoNuevo.respuesta = "Reloj";
+            break;
+        case 3:
+            acertijoNuevo.acertijo = "Te la digo, te la digo y te la vuelvo a repetir. Te la digo 5 veces y no sabes que decir. Que es? ";
+            acertijoNuevo.respuesta = "Tela";
+            break;
+    }
+
+    return acertijoNuevo;
+}
+
 void acertijoFacil(Usuario *j)
 {
     if (j->nivel < 1)
@@ -316,17 +613,22 @@ void acertijoFacil(Usuario *j)
         return;
     }
 
-    cout << "\nAcertijo: 'Que tiene manos pero no puede aplaudir?'\nTu respuesta: ";
+    Acertijo acertijo = pedirAcertijoFacil();
+
+    cout << "\nAcertijo: '" << acertijo.acertijo << "'\nTu respuesta: ";
     string r;
     getline(cin, r);
-    if (r == "reloj" || r == "Reloj")
+
+    if (aMinus(r).compare(aMinus(acertijo.respuesta)))
     {
         cout << "Correcto!\n";
-        agregarLogro(j, "Acertijo 1", "Reloj", 'O', 1000);
+        agregarLogro(j, "Acertijo 1", acertijo.respuesta, 'O', 1000);
+        eliminarMision(j, 1);
+
     }
     else
     {
-        cout << "Incorrecto. Era 'reloj'. Sin logro.\n";
+        cout << "Incorrecto. Era '" << acertijo.respuesta << "'. Sin logro.\n";
     }
 }
 
@@ -343,7 +645,7 @@ void juegoSecuencia(Usuario *j)
 
     int a = aleatorio(1, 10), d = aleatorio(2, 5);
     cout << "\nSecuencia: ";
-    for (int k = 0; k < 4; ++k)
+    for (int k = 0; k < 4; k++)
         cout << a + k * d << " ";
     cout << "?\nSiguiente numero: ";
     int resp;
@@ -354,6 +656,8 @@ void juegoSecuencia(Usuario *j)
     {
         cout << "Correcto!\n";
         agregarLogro(j, "Secuencia", "Numero siguiente", 'O', 1000);
+        eliminarMision(j, 2);
+
     }
     else
     {
@@ -362,6 +666,30 @@ void juegoSecuencia(Usuario *j)
 }
 
 /* Acertijo nivel 2 */
+Acertijo pedirAcertijoMedio()
+{
+    int n = aleatorio(1, 3);
+    Acertijo acertijoNuevo;
+
+    switch (n)
+    {
+        case 1:
+            acertijoNuevo.acertijo = "Que no esta ni dentro ni fuera de la casa, pero es necesario para cualquier hogar? ";
+            acertijoNuevo.respuesta = "Ventana";
+            break;
+        case 2:
+            acertijoNuevo.acertijo = "Me mojo para secarte. Que soy? ";
+            acertijoNuevo.respuesta = "Toalla";
+            break;
+        case 3:
+            acertijoNuevo.acertijo = "No muchas personas me han pisado. Nunca me quedo llena por mucho tiempo. Tengo un lado oscuro. Quien soy? ";
+            acertijoNuevo.respuesta = "Luna";
+            break;
+    }
+
+    return acertijoNuevo;   
+}
+
 void acertijoNivel2(Usuario *j)
 {
     if (j->nivel < 2)
@@ -370,17 +698,23 @@ void acertijoNivel2(Usuario *j)
         return;
     }
 
-    cout << "\nAcertijo: 'Me mojo para secarte. Que soy?'\nRespuesta: ";
+    int indice = aleatorio(0,2);
+
+    Acertijo acertijo = pedirAcertijoMedio();
+
+    cout << "\nAcertijo: '" << acertijo.acertijo << "'\nRespuesta: ";
     string r;
     getline(cin, r);
-    if (r == "toalla" || r == "Toalla")
+    if (aMinus(r).compare(aMinus(acertijo.respuesta)))
     {
         cout << "Correcto!\n";
-        agregarLogro(j, "Acertijo 2", "Toalla", 'O', 1000);
+        agregarLogro(j, "Acertijo 2", acertijo.respuesta, 'O', 1000);
+        eliminarMision(j, 3);
+
     }
     else
     {
-        cout << "Incorrecto. Era 'toalla'. Sin logro.\n";
+        cout << "Incorrecto. Era '" << acertijo.respuesta << "'. Sin logro.\n";
     }
 }
 
@@ -426,6 +760,8 @@ void juego21(Usuario *j)
     {
         cout << "CPU se pasa. Ganas!\n";
         agregarLogro(j, "Suma 21", "Juego contra CPU", 'O', 100);
+        eliminarMision(j, 4);
+
     }
     else
     {
@@ -475,6 +811,7 @@ void juegoAhorcado(Usuario *j)
         cout << "Ganaste! Era '" << palabra << "'\n";
         char rango = (vidas >= 4) ? 'O' : (vidas >= 2 ? 'P' : 'B');
         agregarLogro(j, "Ahorcado", "Adivinar palabra", rango, 1000);
+        eliminarMision(j, 5);
     }
     else
     {
@@ -500,6 +837,7 @@ void problemaMat(Usuario *j)
     {
         cout << "Correcto!\n";
         agregarLogro(j, "Problema Mat", "Calculo facil", 'O', 1000);
+        eliminarMision(j, 6);
     }
     else
     {
@@ -534,6 +872,7 @@ void juegoTresMov(Usuario *j)
         {
             cout << "Exacto! Ganaste\n";
             agregarLogro(j, "Movimientos", "Meta exacta", 'O', 1000);
+            eliminarMision(j, 7);
             return;
         }
         if (c > meta)
@@ -609,94 +948,111 @@ int main()
              << "4) Mostrar jugadores\n"
              << "5) Ranking y podio\n"
              << "6) Minijuegos\n"
-             << "7) Ver perfil\n"
+             << "7) Ver misiones pendientes\n"
+             << "8) Ver perfil\n"
              << "0) Salir\n"
              << "Opcion: ";
         cin >> op;
         cin.ignore();
 
+        string nom, ali, n, d;
+        Usuario *u;
         switch (op)
         {
-        case 1:
-        {
-            string nom, ali;
-            cout << "Nombre: ";
-            getline(cin, nom);
-            cout << "Alias : ";
-            getline(cin, ali);
-            insertarUsuario(lista, nom, ali);
-            break;
-        }
-        case 2:
-        {
-            string ali;
-            cout << "Alias a eliminar: ";
-            getline(cin, ali);
-            eliminarUsuario(lista, ali);
-            break;
-        }
-        case 3:
-        {
-            string ali;
-            cout << "Alias: ";
-            getline(cin, ali);
-            Usuario *u = buscarUsuario(lista, ali);
-            if (!u)
+            case 1:
             {
-                cout << "Alias no encontrado\n";
+                cout << "Nombre: ";
+                getline(cin, nom);
+                cout << "Alias : ";
+                getline(cin, ali);
+                insertarUsuario(lista, nom, ali);
+                inicializarMisiones(lista, ali);
                 break;
             }
-            string n, d;
-            char r;
-            int pts;
-            cout << "Nombre logro : ";
-            getline(cin, n);
-            cout << "Descripcion  : ";
-            getline(cin, d);
-            cout << "Rango (O/P/B): ";
-            cin >> r;
-            cin.ignore();
-            cout << "Puntos base  : ";
-            cin >> pts;
-            cin.ignore();
-            agregarLogro(u, n, d, r, pts);
-            break;
-        }
-        case 4:
-            mostrarTodos(lista);
-            break;
-        case 5:
-            mostrarRanking(lista);
-            break;
-        case 6:
-        {
-            string ali;
-            cout << "Alias: ";
-            getline(cin, ali);
-            Usuario *u = buscarUsuario(lista, ali);
-            if (u)
-                menuMinijuegos(u);
-            else
-                cout << "Alias no encontrado\n";
-            break;
-        }
-        case 7:
-        {
-            string ali;
-            cout << "Alias: ";
-            getline(cin, ali);
-            Usuario *u = buscarUsuario(lista, ali);
-            if (u)
-                mostrarUno(u);
-            else
-                cout << "Alias no encontrado\n";
-            break;
-        }
-        case 0:
-            cout << "Hasta luego\n";
-            break;
-        default:
-            cout << "Opcion invalida\n";
+            case 2:
+            {
+                cout << "Alias a eliminar: ";
+                getline(cin, ali);
+                eliminarUsuario(lista, ali);
+                break;
+            }
+            case 3:
+            {
+                cout << "Alias: ";
+                getline(cin, ali);
+                Usuario *u = buscarUsuario(lista, ali);
+                if (!u)
+                {
+                    cout << "Alias no encontrado, debe registrarse primero.\n";
+                    break;
+                }
+                char r;
+                int pts;
+                cout << "Nombre logro : ";
+                getline(cin, n);
+                cout << "Descripcion  : ";
+                getline(cin, d);
+                cout << "Rango (O/P/B): ";
+                cin >> r;
+                cin.ignore();
+                cout << "Puntos base  : ";
+                cin >> pts;
+                cin.ignore();
+                agregarLogro(u, n, d, r, pts);
+                break;
+            }
+            case 4:
+            {
+                mostrarTodos(lista);
+                break;
+            }
+            case 5:
+            {
+                mostrarRanking(lista);
+                break;
+            }
+            case 6:
+            {
+                cout << "Alias: ";
+                getline(cin, ali);
+                u = buscarUsuario(lista, ali);
+                if (u)
+                    menuMinijuegos(u);
+                else
+                    cout << "Alias no encontrado, debe registrarse primero.\n";
+                break;
+            }
+            case 7:
+            {
+                cout << "Alias: ";
+                getline(cin, ali);
+                u = buscarUsuario(lista, ali);
+                if (u)
+                    mostrarMisiones(u, ali);
+                else
+                    cout << "Alias no encontrado, debe registrarse primero.\n";
+                break;
+            }
+            case 8:
+            {
+                cout << "Alias: ";
+                getline(cin, ali);
+                u = buscarUsuario(lista, ali);
+                if (u)
+                    mostrarUno(u);
+                else
+                    cout << "Alias no encontrado, debe registrarse primero.\n";
+                break;
+            }
+            case 0:
+            {
+                cout << "Hasta luego!\n";
+                break;
+            }
+            default:
+            {
+                cout << "Opcion invalida\n";
+            }
         }
     } while (op != 0);
 
