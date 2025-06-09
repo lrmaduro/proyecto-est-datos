@@ -121,7 +121,7 @@ Mision *nuevaMision(const string &titulo, const string &descripcion, const strin
     return new Mision{titulo, descripcion, req, pts, nivel, id, nullptr};
 }
 
-/*================  Lista enlazada de usuarios  ==============*/
+
 void insertarUsuario(Usuario *&cab, const string &n, const string &a)
 {
     if (!cab)
@@ -181,81 +181,62 @@ void eliminarUsuario(Usuario *&cab, const string &a)
     cout << "Perfil eliminado\n";
 }
 
-
-void agregarLogro(Usuario *u, const string &nombre, const string &descripcion, char nuevoRango, int puntosBase)
+void agregarLogro(Usuario* u, const string& nombre, const string& descripcion, char nuevoRango, int  puntosBase)
 {
-    int nvalor, pvalor;
+    int  valorNuevo;
+    double multNuevo;
 
-    switch (nuevoRango)
+    if      (nuevoRango == 'O') { valorNuevo = 3; multNuevo = 1.5; }
+    else if (nuevoRango == 'P') { valorNuevo = 2; multNuevo = 1.2; }
+    else                        { valorNuevo = 1; multNuevo = 1.0; }
+
+    Logro* l = u->listaLogros;
+    while (l && l->nombre != nombre)
+        l = l->sig;
+
+    if (!l)
     {
-        case 'O':
-            nvalor = 3;
-            break;
+        Logro* nuevo = new Logro;
+        nuevo->nombre       = nombre;
+        nuevo->descripcion  = descripcion;
+        nuevo->rango        = nuevoRango;
+        nuevo->puntosBase   = puntosBase;
+        nuevo->fecha        = fechaHoy();
+        nuevo->sig          = u->listaLogros;    
+        u->listaLogros      = nuevo;
 
-        case 'P':
-            nvalor = 2;
-            break;
-
-        case 'B':
-            nvalor = 1;
-            break;
-    }
-
-    Logro *l = u->listaLogros;
-    cout<<(l == nullptr)<<endl;
-    if (l == nullptr)
-    {
-        /* ——— crear logro ——— */
-        Logro *nuevo = new Logro{nombre, descripcion,
-                                 nuevoRango, puntosBase,
-                                 fechaHoy(), u->listaLogros};
-        cout<<"Despues de Logro *nuevo"<<endl;
-        u->listaLogros = nuevo;
-        cout<<"Despues de listaLogros"<<endl;
-        u->puntosTotales += int(puntosBase * multiplicador(l->rango));
-        cout<<"Antes de recalcularNivel"<<endl;
+        u->puntosTotales += int(puntosBase * multNuevo);
         recalcularNivel(u);
-        cout<<"despues de recalcularNivel"<<endl;
-        cout << "Logro [" << nombre << "] creado en rango "
-             << nuevoRango << ".\n";
+        cout << "Logro [" << nombre << "] creado (rango "
+             << nuevoRango << ").\n";
         return;
     }
 
-    while (l != nullptr && l->nombre.compare(nombre))
-        cout<<(l==nullptr)<<endl;
-        l = l->sig;
+    int valorActual;
+    double multActual;
 
-    switch (l->rango)
+    if      (l->rango == 'O') { valorActual = 3; multActual = 1.5; }
+    else if (l->rango == 'P') { valorActual = 2; multActual = 1.2; }
+    else                       { valorActual = 1; multActual = 1.0; }
+
+    if (valorNuevo > valorActual)
     {
-        case 'O':
-            pvalor = 3;
-            break;
+        int puntosAntes = int(l->puntosBase * multActual);
+        int puntosDesp  = int(l->puntosBase * multNuevo);
 
-        case 'P':
-            pvalor = 2;
-            break;
-
-        case 'B':
-            pvalor = 1;
-            break;
-    }
-    
-    if (nvalor > pvalor)
-    {
-        /* ——— mejora de rango ——— */
-        int antes = int(l->puntosBase * multiplicador(l->rango));
-        int ahora = int(l->puntosBase * multiplicador(nuevoRango));
         l->rango = nuevoRango;
         l->fecha = fechaHoy();
-        u->puntosTotales += (ahora - antes);
+
+        u->puntosTotales += (puntosDesp - puntosAntes);
         recalcularNivel(u);
+
         cout << "Logro [" << nombre << "] mejorado a rango "
              << nuevoRango << ".\n";
     }
-    /* si es igual o peor, no cambia nada */
 }
 
-/* Listas enlazadas de Misiones */
+
+
 void agregarMision(Usuario *u, const string &titulo, const string &desc, const string &req, int pts, int nivel, int id)
 {
     if (!u->listaMisiones)
@@ -350,26 +331,27 @@ Mision *elegirMision(int id)
 }
 
 
-void eliminarMision(Usuario *u, int id)
+void eliminarMision(Usuario* u, int id)
 {
-    Mision *mover = u->listaMisiones, *tmp = nullptr, *anterior = nullptr;
+    Mision* mover    = u->listaMisiones;
+    Mision* anterior = nullptr;
 
-    while (mover && mover->id != id)
-    {
+
+    while (mover && mover->id != id) {
         anterior = mover;
-        mover = mover->prox;
+        mover    = mover->prox;
     }
-    if (!mover)
-    {
-        return;
-    } 
-    else
-    {
-        Mision *tmp = mover;
+    if (!mover) return;                  
+
+    if (anterior)                        
         anterior->prox = mover->prox;
-        delete tmp;
-    }
+    else          
+        u->listaMisiones = mover->prox;
+
+    delete mover;
 }
+
+
 
 void inicializarMisiones(Usuario *u, const string &alias)
 {
@@ -445,7 +427,6 @@ void mostrarRanking(Usuario *cabeza)
         return;
     }
 
-    /* top3 */
     Usuario *primero = nullptr;
     Usuario *segundo = nullptr;
     Usuario *tercero = nullptr;
@@ -508,8 +489,6 @@ bool nivelSuficiente(Usuario *u, int req)
     cout << "Se requiere nivel " << req << " para jugar\n";
     return false;
 }
-
-/* Piedra, Papel o Tijeras */
 char elegirPPT()
 {
     int n = aleatorio(1, 3);
@@ -536,51 +515,65 @@ char rangoPorIntentos(int c)
     }
 }
 
-void juegoPPT(Usuario *j)
+void juegoPPT(Usuario* jugador)
 {
-    if (j->nivel < 1)
-    {
+    if (jugador->nivel < 1) {
         cout << "Se requiere nivel 1\n";
         return;
     }
 
-    int c = 0;
-    char otra = 's';
-    char opc = elegirPPT(); 
-    while (otra == 's' || otra == 'S')
-    {
-        c++;
-        cout << "\nPiedra (p), Papel (l), Tijeras (t): ";
-        char elec;
-        cin >> elec;
-        cin.ignore();
-        char cpu = elegirPPT();
-        cout << "CPU elige " << (cpu == 'p' ? "Piedra" : cpu == 'l' ? "Papel"
-                                                                    : "Tijeras")
-             << "\n";
+    int  intentos      = 0;
+    char repetir       = 's';
 
-        bool gana = (elec == 'p' && cpu == 't') || (elec == 'l' && cpu == 'p') || (elec == 't' && cpu == 'l');
-        if (elec == cpu)
+    while (repetir == 's' || repetir == 'S')
+    {
+        ++intentos;
+
+        cout << "\nPiedra (p), Papel (l), Tijeras (t): ";
+        char eleccion;
+        cin  >> eleccion;
+        cin.ignore();
+
+        char cpu = elegirPPT();
+        cout << "CPU elige "
+             << (cpu=='p'?"Piedra": cpu=='l'?"Papel":"Tijeras") << '\n';
+
+        bool gana =
+            (eleccion=='p'&&cpu=='t') ||
+            (eleccion=='l'&&cpu=='p') ||
+            (eleccion=='t'&&cpu=='l');
+
+        if (eleccion == cpu) {
             cout << "Empate. Sin logro.\n";
-        else if (gana)
-        {
-            cout << "Ganaste!\n";
-            agregarLogro(j, "PPT", "Ganar en Piedra Papel Tijeras!", rangoPorIntentos(c), 500);
-            cout<<"Pase agregar logro"<<endl;
-            eliminarMision(j, 0);
-            return;
         }
-        else
+        else if (gana) {
+            cout << "¡Ganaste!\n";
+
+            char rango =
+                (intentos == 1)       ? 'O' :
+                (intentos <= 5)       ? 'P' : 'B';
+
+            agregarLogro(jugador,
+                         "Piedra Papel Tijeras",
+                         "Ganar al CPU en PPT",
+                         rango,
+                         500);
+
+            if (intentos == 1)        // solo la primera victoria
+                eliminarMision(jugador, 0);
+        }
+        else {
             cout << "Perdiste. Sin logro.\n";
+        }
 
         cout << "¿Jugar otra vez? (s/n): ";
-        cin >> otra;
+        cin  >> repetir;
         cin.ignore();
     }
 }
 
 
-/* Acertijo fácil */
+
 Acertijo pedirAcertijoFacil()
 {
     int n = aleatorio(1, 3);
@@ -632,9 +625,7 @@ void acertijoFacil(Usuario *j)
     }
 }
 
-/* =============== NIVEL 2 =============== */
 
-/* Secuencia aritmética */
 void juegoSecuencia(Usuario *j)
 {
     if (j->nivel < 2)
@@ -665,7 +656,6 @@ void juegoSecuencia(Usuario *j)
     }
 }
 
-/* Acertijo nivel 2 */
 Acertijo pedirAcertijoMedio()
 {
     int n = aleatorio(1, 3);
@@ -718,7 +708,7 @@ void acertijoNivel2(Usuario *j)
     }
 }
 
-/* Suma 21 (jugador gana si CPU se pasa) */
+
 void juego21(Usuario *j)
 {
     if (j->nivel < 2)
@@ -755,7 +745,7 @@ void juego21(Usuario *j)
         turnoJugador = !turnoJugador;
     }
 
-    bool gana = (!turnoJugador); // CPU hizo la jugada final y pasó de 21
+    bool gana = (!turnoJugador); 
     if (gana)
     {
         cout << "CPU se pasa. Ganas!\n";
@@ -768,8 +758,6 @@ void juego21(Usuario *j)
         cout << "Te pasaste. Sin logro.\n";
     }
 }
-
-/* =============== NIVEL 3 =============== */
 
 void juegoAhorcado(Usuario *j)
 {
@@ -1056,7 +1044,6 @@ int main()
         }
     } while (op != 0);
 
-    /* liberar memoria */
     while (lista)
     {
         Usuario *u = lista;
