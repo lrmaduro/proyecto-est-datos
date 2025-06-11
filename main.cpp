@@ -612,7 +612,7 @@ void acertijoFacil(Usuario *j)
     string r;
     getline(cin, r);
 
-    if (aMinus(r).compare(aMinus(acertijo.respuesta)))
+    if (aMinus(r) == aMinus(acertijo.respuesta))
     {
         cout << "Correcto!\n";
         agregarLogro(j, "Acertijo 1", acertijo.respuesta, 'O', 1000);
@@ -695,7 +695,7 @@ void acertijoNivel2(Usuario *j)
     cout << "\nAcertijo: '" << acertijo.acertijo << "'\nRespuesta: ";
     string r;
     getline(cin, r);
-    if (aMinus(r).compare(aMinus(acertijo.respuesta)))
+    if (aMinus(r) == aMinus(acertijo.respuesta))
     {
         cout << "Correcto!\n";
         agregarLogro(j, "Acertijo 2", acertijo.respuesta, 'O', 1000);
