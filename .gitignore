@@ -6,3 +6,4 @@ output
 *.exe
 bin/
 main*/
+main_*
