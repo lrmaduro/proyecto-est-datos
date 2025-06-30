@@ -1044,132 +1044,125 @@ void guardarUsuariosEnArchivo(Usuario* cabeza, const string& archivo) {
     cout << "Usuarios guardados en " << archivo << "\n";
 }
 
-void cargarUsuariosDesdeArchivo(Usuario*& cabeza, const string& archivo) {
+bool cargarUsuariosDesdeArchivo(Usuario*& cabeza, const string& archivo) {
     ifstream file(archivo);
     if (!file) {
-        cout << "No se encontró el archivo de usuarios. Se iniciará una nueva sesión.\n";
-        return;
+        cout << "No se pudo encontrar el archivo '" << archivo << "'.\n";
+        return true; 
     }
 
     Usuario* ult = nullptr;
     string linea;
-    while (getline(file, linea)) {
-        if (linea != "USUARIO") continue;
+    int numeroLinea = 0;
 
-        Usuario* nuevo = new Usuario;
-        nuevo->listaLogros = nullptr;
-        nuevo->listaMisiones = nullptr;
-        nuevo->sig = nullptr;
+    try {
+        while (getline(file, linea)) {
+            numeroLinea++;
+            if (linea.find("USUARIO") == string::npos) continue;
 
-        getline(file, nuevo->nombre);
-        getline(file, nuevo->alias); 
-        if (!(file >> nuevo->nivel)) 
-        {
-            cerr << "Error leyendo nivel del usuario.\n"; 
-            break; 
-        }
-        if (!(file >> nuevo->puntosTotales)) 
-        {
-            cerr << "Error leyendo puntosTotales del usuario.\n";
-            break;
-        }
-        file.ignore();
+            Usuario* nuevo = new Usuario{ "", "", 1, 0, nullptr, nullptr, nullptr };
 
-        int count;
-        if (!(file >> count))
-        {
-            cerr << "Error leyendo cantidad de logros.\n";
-            break;
-        }
-        file.ignore();
-        Logro* ultLogro = nullptr;
-        for (int i = 0; i < count; ++i) {
-            Logro* l = new Logro;
-            getline(file, l->nombre);
-            getline(file, l->descripcion);
-            if (!(file >> l->rango))
-            {
-                cerr << "Error leyendo rango del logro.\n";
-                break;
-            }
-            file.ignore();
-            if (!(file >> l->puntosBase))
-            {
-                cerr << "Error leyendo puntosBase del logro.\n";
-                break;
-            }
-            if (!(file >> l->id))
-            {
-                cerr << "Error leyendo ID del logro.\n";
-                break;
-            }
-            file.ignore();
-            getline(file, l->fecha);
-            l->sig = nullptr;
-            if (!nuevo->listaLogros)
-                nuevo->listaLogros = l;
-            else
-                ultLogro->sig = l;
-            ultLogro = l;
-        }
+            if (!getline(file, nuevo->nombre)) throw runtime_error("Error al leer nombre.");
+            if (!getline(file, nuevo->alias)) throw runtime_error("Error al leer alias.");
+            if (!(file >> nuevo->nivel)) throw runtime_error("formato de 'nivel' inválido.");
+            if (!(file >> nuevo->puntosTotales)) throw runtime_error("formato de 'puntosTotales' inválido.");
+            file.ignore(numeric_limits<streamsize>::max(), '\n');
 
-        int mcount;
-        if (!(file >> mcount))
-        {
-            cerr << "Error leyendo cantidad de misiones.\n";
-            break;
-        }
-        file.ignore();
-        Mision* ultM = nullptr;
-        for (int i = 0; i < mcount; ++i) {
-            Mision* m = new Mision;
-            getline(file, m->titulo);
-            getline(file, m->descripcion);
-            getline(file, m->requisito);
-            if (!(file >> m->puntos))
-            {
-                cerr << "Error leyendo puntos de misión.\n";
-                break;
+            int count;
+            if (!(file >> count)) throw runtime_error("formato de 'contador de logros' inválido.");
+            file.ignore(numeric_limits<streamsize>::max(), '\n');
+            Logro* ultLogro = nullptr;
+            for (int i = 0; i < count; ++i) {
+                Logro* l = new Logro;
+                if (!getline(file, l->nombre) || !getline(file, l->descripcion)) throw runtime_error("Error al leer datos de logro.");
+                if (!(file >> l->rango)) throw runtime_error("formato de 'rango' de logro inválido.");
+                if (!(file >> l->puntosBase)) throw runtime_error("formato de 'puntosBase' de logro inválido.");
+                if (!(file >> l->id)) throw runtime_error("formato de 'id' de logro inválido.");
+                file.ignore(numeric_limits<streamsize>::max(), '\n');
+                if (!getline(file, l->fecha)) throw runtime_error("Error al leer fecha de logro.");
+                l->sig = nullptr;
+                if (!nuevo->listaLogros) nuevo->listaLogros = l;
+                else ultLogro->sig = l;
+                ultLogro = l;
             }
-            if (!(file >> m->nivelRequisito))
-            {
-                cerr << "Error leyendo nivel requerido de misión.\n";
-                break;
-            }
-            if (!(file >> m->id))
-            {
-                cerr << "Error leyendo ID de misión.\n";
-                break;
-            }
-            file.ignore();
-            m->logroAsociado = nullptr;
-            m->prox = nullptr;
-            if (!nuevo->listaMisiones)
-                nuevo->listaMisiones = m;
-            else
-                ultM->prox = m;
-            ultM = m;
-        }
 
-        if (!cabeza)
-            cabeza = nuevo;
-        else
-            ult->sig = nuevo;
-        ult = nuevo;
+            int mcount;
+            if (!(file >> mcount)) throw runtime_error("formato de 'contador de misiones' inválido.");
+            file.ignore(numeric_limits<streamsize>::max(), '\n');
+            Mision* ultM = nullptr;
+            for (int i = 0; i < mcount; ++i) {
+                Mision* m = new Mision;
+                if (!getline(file, m->titulo) || !getline(file, m->descripcion) || !getline(file, m->requisito)) throw runtime_error("Error al leer datos de misión.");
+                if (!(file >> m->puntos)) throw runtime_error("formato de 'puntos' de misión inválido.");
+                if (!(file >> m->nivelRequisito)) throw runtime_error("formato de 'nivelRequisito' de misión inválido.");
+                if (!(file >> m->id)) throw runtime_error("formato de 'id' de misión inválido.");
+                file.ignore(numeric_limits<streamsize>::max(), '\n');
+                m->logroAsociado = nullptr; 
+                m->prox = nullptr;
+                if (!nuevo->listaMisiones) nuevo->listaMisiones = m;
+                else ultM->prox = m;
+                ultM = m;
+            }
+
+            if (!cabeza) cabeza = nuevo;
+            else ult->sig = nuevo;
+            ult = nuevo;
+        }
+    } catch (const runtime_error& e) {
+        cerr << "\n[ERROR] El archivo '" << archivo << "' está corrupto o tiene un formato incorrecto.\n";
+        cerr << "Detalle del error: " << e.what() << "\n";
+        
+         while (cabeza) {
+            Usuario* temp = cabeza;
+            cabeza = cabeza->sig;
+             delete temp; 
+        }
+        cabeza = nullptr;
+        file.close();
+        return false; 
     }
 
     file.close();
-    cout << "Usuarios cargados desde " << archivo << "\n";
-    return;
+    cout << "Usuarios cargados correctamente desde '" << archivo << "'.\n";
+    return true; 
 }
 
 int main()
 {
-    int op;
 
     Usuario *lista = nullptr;
-    cargarUsuariosDesdeArchivo(lista, "usuarios.txt");
+    char opcionCarga;
 
+
+    cout << "===== BIENVENIDO =====" << endl;
+    cout << "¿Deseas cargar los datos desde un archivo guardado? (s/n): ";
+    cin >> opcionCarga;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    if (opcionCarga == 's' || opcionCarga == 'S')
+    {
+        if (!cargarUsuariosDesdeArchivo(lista, "usuarios.txt"))
+        {
+            cout << "\nNo se pudieron cargar los datos correctamente." << endl;
+            char opcionContinuar;
+            cout << "¿Deseas continuar con una sesión nueva (s) o salir del programa (n)? (s/n): ";
+            cin >> opcionContinuar;
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            if (opcionContinuar != 's' && opcionContinuar != 'S')
+            {
+                cout << "Cerrando el programa." << endl;
+                return 1; 
+            }
+            cout << "Iniciando una sesión nueva." << endl;
+            lista = nullptr; 
+        }
+    }
+    else
+    {
+        cout << "Iniciando una nueva sesión sin cargar datos." << endl;
+    }
+    
+    int op;
     do
     {
         cout << "\n===== MENU PRINCIPAL =====\n"
