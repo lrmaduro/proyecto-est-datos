@@ -1044,80 +1044,139 @@ void guardarUsuariosEnArchivo(Usuario* cabeza, const string& filename) {
     cout << "Usuarios guardados en " << filename << "\n";
 }
 
-void cargarUsuariosDesdeArchivo(Usuario*& cabeza, const string& filename) {
-    ifstream file(filename, ios::binary);
+bool cargarUsuariosDesdeArchivo(Usuario*& cabeza, const string& filename) {
+    ifstream file(filename, ios::binary | ios::ate); 
     if (!file) {
-        cerr << "No se encontró archivo de usuarios. Comenzando desde cero.\n";
-        return;
+        cout << "No se encontró el archivo de usuarios. Se iniciará una nueva sesión.\n";
+        return true; 
+    }
+
+    long long fileSize = file.tellg();
+    file.seekg(0, ios::beg);  
+
+    if (fileSize == 0) {
+        cout << "El archivo de usuarios está vacío. Se iniciará una nueva sesión.\n";
+        file.close();
+        return true;  
     }
 
     Usuario* last = nullptr;
-    while (file.peek() != EOF) {
-        Usuario* nuevo = new Usuario;
-        nuevo->listaLogros = nullptr;
-        nuevo->listaMisiones = nullptr;
-        nuevo->sig = nullptr;
+    try {
+        while (file.peek() != EOF) {
+            Usuario* nuevo = new Usuario{ "", "", 1, 0, nullptr, nullptr, nullptr };
 
-        size_t nameLen, aliasLen;
-        file.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
-        nuevo->nombre.resize(nameLen);
-        file.read(&nuevo->nombre[0], nameLen);
+            size_t nameLen, aliasLen;
+            file.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
+            if (!file.good()) throw runtime_error("Error al leer longitud de nombre.");
+            nuevo->nombre.resize(nameLen);
+            file.read(&nuevo->nombre[0], nameLen);
+            if (!file.good()) throw runtime_error("Error al leer nombre.");
 
-        file.read(reinterpret_cast<char*>(&aliasLen), sizeof(aliasLen));
-        nuevo->alias.resize(aliasLen);
-        file.read(&nuevo->alias[0], aliasLen);
+            file.read(reinterpret_cast<char*>(&aliasLen), sizeof(aliasLen));
+            if (!file.good()) throw runtime_error("Error al leer longitud de alias.");
+            nuevo->alias.resize(aliasLen);
+            file.read(&nuevo->alias[0], aliasLen);
+            if (!file.good()) throw runtime_error("Error al leer alias.");
 
-        file.read(reinterpret_cast<char*>(&nuevo->nivel), sizeof(nuevo->nivel));
-        file.read(reinterpret_cast<char*>(&nuevo->puntosTotales), sizeof(nuevo->puntosTotales));
+            file.read(reinterpret_cast<char*>(&nuevo->nivel), sizeof(nuevo->nivel));
+            if (!file.good()) throw runtime_error("Error al leer nivel.");
+            file.read(reinterpret_cast<char*>(&nuevo->puntosTotales), sizeof(nuevo->puntosTotales));
+            if (!file.good()) throw runtime_error("Error al leer puntos totales.");
 
-        int count;
-        file.read(reinterpret_cast<char*>(&count), sizeof(count));
-        Logro* lastLogro = nullptr;
+            int count;
+            file.read(reinterpret_cast<char*>(&count), sizeof(count));
+            if (!file.good()) throw runtime_error("Error al leer contador de logros.");
+            
+            Logro* lastLogro = nullptr;
+            for (int i = 0; i < count; ++i) {
+                Logro* l = new Logro;
+                size_t nlen, dlen, flen;
 
-        for (int i = 0; i < count; ++i) {
-            Logro* l = new Logro;
-            size_t nlen, dlen, flen;
+                file.read(reinterpret_cast<char*>(&nlen), sizeof(nlen));
+                if (!file.good()) throw runtime_error("Error en el nombre de logro.");
+                l->nombre.resize(nlen);
+                file.read(&l->nombre[0], nlen);
+                if (!file.good()) throw runtime_error("Error en el nombre de logro.");
 
-            file.read(reinterpret_cast<char*>(&nlen), sizeof(nlen));
-            l->nombre.resize(nlen);
-            file.read(&l->nombre[0], nlen);
+                file.read(reinterpret_cast<char*>(&dlen), sizeof(dlen));
+                if (!file.good()) throw runtime_error("Error en la descripcion del logro.");
+                l->descripcion.resize(dlen);
+                file.read(&l->descripcion[0], dlen);
+                if (!file.good()) throw runtime_error("Error al leer descripción de logro.");
 
-            file.read(reinterpret_cast<char*>(&dlen), sizeof(dlen));
-            l->descripcion.resize(dlen);
-            file.read(&l->descripcion[0], dlen);
+                file.read(reinterpret_cast<char*>(&l->rango), sizeof(l->rango));
+                file.read(reinterpret_cast<char*>(&l->puntosBase), sizeof(l->puntosBase));
+                file.read(reinterpret_cast<char*>(&l->id), sizeof(l->id));
 
-            file.read(reinterpret_cast<char*>(&l->rango), sizeof(l->rango));
-            file.read(reinterpret_cast<char*>(&l->puntosBase), sizeof(l->puntosBase));
-            file.read(reinterpret_cast<char*>(&l->id), sizeof(l->id));
+                file.read(reinterpret_cast<char*>(&flen), sizeof(flen));
+                if (!file.good()) throw runtime_error("Error en la fecha.");
+                l->fecha.resize(flen);
+                file.read(&l->fecha[0], flen);
 
-            file.read(reinterpret_cast<char*>(&flen), sizeof(flen));
-            l->fecha.resize(flen);
-            file.read(&l->fecha[0], flen);
+                if (!file.good()) throw runtime_error("Error en la parte de logros.");
 
-            l->sig = nullptr;
-            if (!nuevo->listaLogros)
-                nuevo->listaLogros = l;
+                l->sig = nullptr;
+                if (!nuevo->listaLogros)
+                    nuevo->listaLogros = l;
+                else
+                    lastLogro->sig = l;
+                lastLogro = l;
+            }
+
+            if (!cabeza)
+                cabeza = nuevo;
             else
-                lastLogro->sig = l;
-            lastLogro = l;
+                last->sig = nuevo;
+            last = nuevo;
         }
+    } catch (const exception& e) {
+        cerr << "\nERROR: El archivo 'usuarios.dat' parece estar dañado o con formato incorrecto." << endl;
+        cerr << "Detalle del error: " << e.what() << endl;
+        
+        while (cabeza) {
+            Usuario* temp = cabeza;
+            cabeza = cabeza->sig;
+            while(temp->listaLogros){
+                Logro* lTemp = temp->listaLogros;
+                temp->listaLogros = lTemp->sig;
+                delete lTemp;
+            }
+            delete temp;
+        }
+        cabeza = nullptr; 
 
-        if (!cabeza)
-            cabeza = nuevo;
-        else
-            last->sig = nuevo;
-        last = nuevo;
+        file.close();
+        return false; 
     }
 
     file.close();
-    cout << "Usuarios cargados desde " << filename << "\n";
+    cout << "Usuarios cargados correctamente desde " << filename << "\n";
+    return true; 
 }
 
 int main()
 {
-    Usuario *lista = nullptr;
-    cargarUsuariosDesdeArchivo(lista, "usuarios.dat");
     int op;
+
+    Usuario *lista = nullptr;
+
+    if (!cargarUsuariosDesdeArchivo(lista, "usuarios.dat")) {
+        cout << "No se pudieron cargar los datos de los jugadores." << endl;
+        char opcion;
+        cout << "¿Deseas continuar con una sesión nueva (s) o salir del programa (n)? (s/n): ";
+        cin >> opcion;
+        cin.ignore(); 
+        if (opcion != 's' && opcion != 'S') {
+            cout << "Cerrando el programa." << endl;
+            return 1; 
+        }
+    }
+
+    Usuario* temp = lista;
+    while(temp) {
+        inicializarMisiones(lista, temp->alias);
+        temp = temp->sig;
+    }
 
     do
     {
@@ -1133,7 +1192,13 @@ int main()
              << "0) Salir\n"
              << "Opcion: ";
         cin >> op;
-        cin.ignore();
+        if(cin.fail()){ 
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            op = -1; 
+        } else {
+            cin.ignore();
+        }
 
         string nom, ali, n, d;
         Usuario *u;
@@ -1212,7 +1277,7 @@ int main()
             getline(cin, ali);
             u = buscarUsuario(lista, ali);
             if (u)
-                mostrarMisiones(u, ali);
+                mostrarMisiones(lista, ali); 
             else
                 cout << "Alias no encontrado, debe registrarse primero.\n";
             break;
@@ -1245,13 +1310,23 @@ int main()
     {
         Usuario *u = lista;
         lista = lista->sig;
-        for (Logro *l = u->listaLogros; l;)
+
+         while (u->listaLogros)
         {
-            Logro *t = l;
-            l = l->sig;
-            delete t;
+            Logro *l = u->listaLogros;
+            u->listaLogros = l->sig;
+            delete l;
         }
-        delete u;
+
+         while (u->listaMisiones)
+        {
+            Mision *m = u->listaMisiones;
+            u->listaMisiones = m->prox;
+             delete m;
+        }
+        
+        delete u; 
     }
+
     return 0;
 }
