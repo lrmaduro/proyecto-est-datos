@@ -60,7 +60,7 @@ char aMayus(char c)
 
 string aMinus(string str)
 {
-    for (int i = 0; i < str.length(); i++)
+    for (int i = 0; i < int(str.length()); i++)
     {
         str[i] = tolower(str[i]);
     }
@@ -267,7 +267,6 @@ void agregarLogro(Usuario *u, Usuario *listaU, const string &nombre, const strin
 Mision *elegirMision(int id)
 {
     string t, d, r;
-    char rang;
     int pts, nivel;
     Logro *l;
     switch (id)
@@ -416,14 +415,15 @@ void inicializarMisiones(Usuario *u, const string &alias)
         agregarMision(j, t, desc, req, l, ptos, nivel, i);
     }
 }
+
 void mostrarJugadoresLogros(Usuario *lista, int id)
 {
     Usuario *mover = lista;
     cout << "Usuarios con el logro: " << endl;
     Logro *l = mover->listaLogros;
-    while (mover)
+    while (mover != nullptr)
     {
-        while (l)
+        while (l != nullptr)
         {
             if (l->id == id)
             {
@@ -433,9 +433,14 @@ void mostrarJugadoresLogros(Usuario *lista, int id)
             l = l->sig;
         }
         mover = mover->sig;
+        if (mover)
+            l = mover->listaLogros;
+        else
+            l = nullptr;
     }
     cout << endl;
 }
+
 void mostrarMisiones(Usuario *cab, const string &a)
 {
     Usuario *j = buscarUsuario(cab, a);
@@ -767,7 +772,7 @@ void acertijoNivel2(Usuario *j, Usuario *listaU)
         return;
     }
 
-    int indice = aleatorio(0, 2), id = 3;
+    int id = 3;
 
     Acertijo acertijo = pedirAcertijoMedio();
 
