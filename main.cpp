@@ -1062,23 +1062,47 @@ void cargarUsuariosDesdeArchivo(Usuario*& cabeza, const string& archivo) {
         nuevo->sig = nullptr;
 
         getline(file, nuevo->nombre);
-        getline(file, nuevo->alias);
-        file >> nuevo->nivel;
-        file >> nuevo->puntosTotales;
+        getline(file, nuevo->alias); 
+        if (!(file >> nuevo->nivel)) 
+        {
+            cerr << "Error leyendo nivel del usuario.\n"; 
+            break; 
+        }
+        if (!(file >> nuevo->puntosTotales)) 
+        {
+            cerr << "Error leyendo puntosTotales del usuario.\n";
+            break;
+        }
         file.ignore();
 
         int count;
-        file >> count;
+        if (!(file >> count))
+        {
+            cerr << "Error leyendo cantidad de logros.\n";
+            break;
+        }
         file.ignore();
         Logro* ultLogro = nullptr;
         for (int i = 0; i < count; ++i) {
             Logro* l = new Logro;
             getline(file, l->nombre);
             getline(file, l->descripcion);
-            file >> l->rango;
+            if (!(file >> l->rango))
+            {
+                cerr << "Error leyendo rango del logro.\n";
+                break;
+            }
             file.ignore();
-            file >> l->puntosBase;
-            file >> l->id;
+            if (!(file >> l->puntosBase))
+            {
+                cerr << "Error leyendo puntosBase del logro.\n";
+                break;
+            }
+            if (!(file >> l->id))
+            {
+                cerr << "Error leyendo ID del logro.\n";
+                break;
+            }
             file.ignore();
             getline(file, l->fecha);
             l->sig = nullptr;
@@ -1090,7 +1114,11 @@ void cargarUsuariosDesdeArchivo(Usuario*& cabeza, const string& archivo) {
         }
 
         int mcount;
-        file >> mcount;
+        if (!(file >> mcount))
+        {
+            cerr << "Error leyendo cantidad de misiones.\n";
+            break;
+        }
         file.ignore();
         Mision* ultM = nullptr;
         for (int i = 0; i < mcount; ++i) {
@@ -1098,9 +1126,21 @@ void cargarUsuariosDesdeArchivo(Usuario*& cabeza, const string& archivo) {
             getline(file, m->titulo);
             getline(file, m->descripcion);
             getline(file, m->requisito);
-            file >> m->puntos;
-            file >> m->nivelRequisito;
-            file >> m->id;
+            if (!(file >> m->puntos))
+            {
+                cerr << "Error leyendo puntos de misión.\n";
+                break;
+            }
+            if (!(file >> m->nivelRequisito))
+            {
+                cerr << "Error leyendo nivel requerido de misión.\n";
+                break;
+            }
+            if (!(file >> m->id))
+            {
+                cerr << "Error leyendo ID de misión.\n";
+                break;
+            }
             file.ignore();
             m->logroAsociado = nullptr;
             m->prox = nullptr;
