@@ -1002,156 +1002,120 @@ void menuMinijuegos(Usuario *u, Usuario *listaU)
 
 
 // === FUNCIONES DE SERIALIZACIÓN Y DESERIALIZACIÓN DE USUARIOS ===
-void guardarUsuariosEnArchivo(Usuario* cabeza, const string& filename) {
-    ofstream file(filename, ios::binary);
+void guardarUsuariosEnArchivo(Usuario* cabeza, const string& archivo) {
+    ofstream file(archivo);
     if (!file) {
         cerr << "Error al abrir el archivo para escritura\n";
         return;
     }
 
     for (Usuario* u = cabeza; u; u = u->sig) {
-        size_t nameLen = u->nombre.size();
-        size_t aliasLen = u->alias.size();
-        file.write(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
-        file.write(u->nombre.c_str(), nameLen);
-        file.write(reinterpret_cast<char*>(&aliasLen), sizeof(aliasLen));
-        file.write(u->alias.c_str(), aliasLen);
-        file.write(reinterpret_cast<char*>(&u->nivel), sizeof(u->nivel));
-        file.write(reinterpret_cast<char*>(&u->puntosTotales), sizeof(u->puntosTotales));
+        file << "USUARIO\n";
+        file << u->nombre << '\n' << u->alias << '\n'
+             << u->nivel << '\n' << u->puntosTotales << '\n';
 
         int count = 0;
         for (Logro* l = u->listaLogros; l; l = l->sig)
             count++;
-        file.write(reinterpret_cast<char*>(&count), sizeof(count));
-
+        file << count << '\n';
         for (Logro* l = u->listaLogros; l; l = l->sig) {
-            size_t nlen = l->nombre.size();
-            size_t dlen = l->descripcion.size();
-            size_t flen = l->fecha.size();
-            file.write(reinterpret_cast<char*>(&nlen), sizeof(nlen));
-            file.write(l->nombre.c_str(), nlen);
-            file.write(reinterpret_cast<char*>(&dlen), sizeof(dlen));
-            file.write(l->descripcion.c_str(), dlen);
-            file.write(reinterpret_cast<char*>(&l->rango), sizeof(l->rango));
-            file.write(reinterpret_cast<char*>(&l->puntosBase), sizeof(l->puntosBase));
-            file.write(reinterpret_cast<char*>(&l->id), sizeof(l->id));
-            file.write(reinterpret_cast<char*>(&flen), sizeof(flen));
-            file.write(l->fecha.c_str(), flen);
+            file << l->nombre << '\n' << l->descripcion << '\n'
+                 << l->rango << '\n' << l->puntosBase << '\n'
+                 << l->id << '\n' << l->fecha << '\n';
+        }
+
+        int mcount = 0;
+        for (Mision* m = u->listaMisiones; m; m = m->prox)
+            mcount++;
+        file << mcount << '\n';
+        for (Mision* m = u->listaMisiones; m; m = m->prox) {
+            file << m->titulo << '\n' << m->descripcion << '\n'
+                 << m->requisito << '\n' << m->puntos << '\n'
+                 << m->nivelRequisito << '\n' << m->id << '\n';
         }
     }
 
     file.close();
-    cout << "Usuarios guardados en " << filename << "\n";
+    cout << "Usuarios guardados en " << archivo << "\n";
 }
 
-bool cargarUsuariosDesdeArchivo(Usuario*& cabeza, const string& filename) {
-    ifstream file(filename, ios::binary | ios::ate); 
+void cargarUsuariosDesdeArchivo(Usuario*& cabeza, const string& archivo) {
+    ifstream file(archivo);
     if (!file) {
         cout << "No se encontró el archivo de usuarios. Se iniciará una nueva sesión.\n";
-        return true; 
+        return;
     }
 
-    long long fileSize = file.tellg();
-    file.seekg(0, ios::beg);  
+    Usuario* ult = nullptr;
+    string linea;
+    while (getline(file, linea)) {
+        if (linea != "USUARIO") continue;
 
-    if (fileSize == 0) {
-        cout << "El archivo de usuarios está vacío. Se iniciará una nueva sesión.\n";
-        file.close();
-        return true;  
-    }
+        Usuario* nuevo = new Usuario;
+        nuevo->listaLogros = nullptr;
+        nuevo->listaMisiones = nullptr;
+        nuevo->sig = nullptr;
 
-    Usuario* last = nullptr;
-    try {
-        while (file.peek() != EOF) {
-            Usuario* nuevo = new Usuario{ "", "", 1, 0, nullptr, nullptr, nullptr };
+        getline(file, nuevo->nombre);
+        getline(file, nuevo->alias);
+        file >> nuevo->nivel;
+        file >> nuevo->puntosTotales;
+        file.ignore();
 
-            size_t nameLen, aliasLen;
-            file.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
-            if (!file.good()) throw runtime_error("Error al leer longitud de nombre.");
-            nuevo->nombre.resize(nameLen);
-            file.read(&nuevo->nombre[0], nameLen);
-            if (!file.good()) throw runtime_error("Error al leer nombre.");
-
-            file.read(reinterpret_cast<char*>(&aliasLen), sizeof(aliasLen));
-            if (!file.good()) throw runtime_error("Error al leer longitud de alias.");
-            nuevo->alias.resize(aliasLen);
-            file.read(&nuevo->alias[0], aliasLen);
-            if (!file.good()) throw runtime_error("Error al leer alias.");
-
-            file.read(reinterpret_cast<char*>(&nuevo->nivel), sizeof(nuevo->nivel));
-            if (!file.good()) throw runtime_error("Error al leer nivel.");
-            file.read(reinterpret_cast<char*>(&nuevo->puntosTotales), sizeof(nuevo->puntosTotales));
-            if (!file.good()) throw runtime_error("Error al leer puntos totales.");
-
-            int count;
-            file.read(reinterpret_cast<char*>(&count), sizeof(count));
-            if (!file.good()) throw runtime_error("Error al leer contador de logros.");
-            
-            Logro* lastLogro = nullptr;
-            for (int i = 0; i < count; ++i) {
-                Logro* l = new Logro;
-                size_t nlen, dlen, flen;
-
-                file.read(reinterpret_cast<char*>(&nlen), sizeof(nlen));
-                if (!file.good()) throw runtime_error("Error en el nombre de logro.");
-                l->nombre.resize(nlen);
-                file.read(&l->nombre[0], nlen);
-                if (!file.good()) throw runtime_error("Error en el nombre de logro.");
-
-                file.read(reinterpret_cast<char*>(&dlen), sizeof(dlen));
-                if (!file.good()) throw runtime_error("Error en la descripcion del logro.");
-                l->descripcion.resize(dlen);
-                file.read(&l->descripcion[0], dlen);
-                if (!file.good()) throw runtime_error("Error al leer descripción de logro.");
-
-                file.read(reinterpret_cast<char*>(&l->rango), sizeof(l->rango));
-                file.read(reinterpret_cast<char*>(&l->puntosBase), sizeof(l->puntosBase));
-                file.read(reinterpret_cast<char*>(&l->id), sizeof(l->id));
-
-                file.read(reinterpret_cast<char*>(&flen), sizeof(flen));
-                if (!file.good()) throw runtime_error("Error en la fecha.");
-                l->fecha.resize(flen);
-                file.read(&l->fecha[0], flen);
-
-                if (!file.good()) throw runtime_error("Error en la parte de logros.");
-
-                l->sig = nullptr;
-                if (!nuevo->listaLogros)
-                    nuevo->listaLogros = l;
-                else
-                    lastLogro->sig = l;
-                lastLogro = l;
-            }
-
-            if (!cabeza)
-                cabeza = nuevo;
+        int count;
+        file >> count;
+        file.ignore();
+        Logro* ultLogro = nullptr;
+        for (int i = 0; i < count; ++i) {
+            Logro* l = new Logro;
+            getline(file, l->nombre);
+            getline(file, l->descripcion);
+            file >> l->rango;
+            file.ignore();
+            file >> l->puntosBase;
+            file >> l->id;
+            file.ignore();
+            getline(file, l->fecha);
+            l->sig = nullptr;
+            if (!nuevo->listaLogros)
+                nuevo->listaLogros = l;
             else
-                last->sig = nuevo;
-            last = nuevo;
+                ultLogro->sig = l;
+            ultLogro = l;
         }
-    } catch (const exception& e) {
-        cerr << "\nERROR: El archivo 'usuarios.dat' parece estar dañado o con formato incorrecto." << endl;
-        cerr << "Detalle del error: " << e.what() << endl;
-        
-        while (cabeza) {
-            Usuario* temp = cabeza;
-            cabeza = cabeza->sig;
-            while(temp->listaLogros){
-                Logro* lTemp = temp->listaLogros;
-                temp->listaLogros = lTemp->sig;
-                delete lTemp;
-            }
-            delete temp;
-        }
-        cabeza = nullptr; 
 
-        file.close();
-        return false; 
+        int mcount;
+        file >> mcount;
+        file.ignore();
+        Mision* ultM = nullptr;
+        for (int i = 0; i < mcount; ++i) {
+            Mision* m = new Mision;
+            getline(file, m->titulo);
+            getline(file, m->descripcion);
+            getline(file, m->requisito);
+            file >> m->puntos;
+            file >> m->nivelRequisito;
+            file >> m->id;
+            file.ignore();
+            m->logroAsociado = nullptr;
+            m->prox = nullptr;
+            if (!nuevo->listaMisiones)
+                nuevo->listaMisiones = m;
+            else
+                ultM->prox = m;
+            ultM = m;
+        }
+
+        if (!cabeza)
+            cabeza = nuevo;
+        else
+            ult->sig = nuevo;
+        ult = nuevo;
     }
 
     file.close();
-    cout << "Usuarios cargados correctamente desde " << filename << "\n";
-    return true; 
+    cout << "Usuarios cargados desde " << archivo << "\n";
+    return;
 }
 
 int main()
@@ -1159,24 +1123,7 @@ int main()
     int op;
 
     Usuario *lista = nullptr;
-
-    if (!cargarUsuariosDesdeArchivo(lista, "usuarios.dat")) {
-        cout << "No se pudieron cargar los datos de los jugadores." << endl;
-        char opcion;
-        cout << "¿Deseas continuar con una sesión nueva (s) o salir del programa (n)? (s/n): ";
-        cin >> opcion;
-        cin.ignore(); 
-        if (opcion != 's' && opcion != 'S') {
-            cout << "Cerrando el programa." << endl;
-            return 1; 
-        }
-    }
-
-    Usuario* temp = lista;
-    while(temp) {
-        inicializarMisiones(lista, temp->alias);
-        temp = temp->sig;
-    }
+    cargarUsuariosDesdeArchivo(lista, "usuarios.txt");
 
     do
     {
@@ -1295,7 +1242,7 @@ int main()
         }
         case 0:
         {
-            guardarUsuariosEnArchivo(lista, "usuarios.dat");
+            guardarUsuariosEnArchivo(lista, "usuarios.txt");
             cout << "Hasta luego!\n";
             break;
         }
